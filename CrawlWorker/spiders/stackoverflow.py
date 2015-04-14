@@ -1,13 +1,16 @@
 __author__ = 'Ting'
 
 import scrapy
-from CrawlWorker.items import CrawlWorkerItem
+from scrapy.contrib.exporter import JsonItemExporter
+from CrawlWorker.items import CrawlWorkerItem, QuestionSummaryItem
+import datetime
+
 
 class StackOverflowSpider(scrapy.Spider):
-    name = "StackOverflowSpider"
-    allowed_domains = ["http://stackoverflow.com/"]
+    name = 'StackOverflowSpider'
+    allowed_domains = ['stackoverflow.com']
     start_urls = [
-        "http://stackoverflow.com/questions?sort=newest"
+        'http://stackoverflow.com/questions?sort=active'
     ]
 
     def parse(self, response):
@@ -18,17 +21,14 @@ class StackOverflowSpider(scrapy.Spider):
         @url http://www.dmoz.org/Computers/Programming/Languages/Python/Resources/
         @scrapes name
         """
-        selector = scrapy.Selector(response)
-        questions = selector.xpath('//div[@class="question-summary"]')
+        # summaries = response.xpath('//div[@class="question-summary"]')
+        summaries = response.css('div.question-summary')
         items = []
 
-        for question in questions:
-            item = CrawlWorkerItem()
-            item['url'] = question.xpath('div[@class="summary"]/h3/a/text()').extract()
-            item['name'] = question.xpath('div[@class="summary"]/h3/a/@href').extract()
+        exporter = JsonItemExporter(open('stackoverflow.json', 'w'))
+        for question in summaries:
+            item = QuestionSummaryItem()
+            item['url'] = question.css('.question-hyperlink').xpath('@href').extract()
+            item['lastModifiedTime'] = question.css('.relativetime').xpath('@title').extract()
+            exporter.export_item(item)
 
-            yield item
-
-            # items.append(item)
-
-        # return items
