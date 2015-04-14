@@ -7,7 +7,6 @@
 
 import scrapy
 from scrapy import log
-from datetime import datetime
 
 
 class CrawlWorkerItem(scrapy.Item):
@@ -23,17 +22,6 @@ class CrawlWorkerItem(scrapy.Item):
     voteNumber = scrapy.Field()
 
 
-def serialize_datetime_str(value):
-    """
-    Serialize datetime string to datetime object. xpath().extract() method returns list always,
-    so we first check input value is list or not.
-    """
-    # log.msg('serialize_datetime_str(): input value=%s, type=%s' % (value, type(value)))
-    if isinstance(value, list):
-        return serialize_datetime_str(value[0])
-    return datetime.strptime(value, '%Y-%m-%d %H:%M:%SZ')
-
-
 class QuestionSummaryItem(scrapy.Item):
     url = scrapy.Field()
-    lastModifiedTime = scrapy.Field(serializer=serialize_datetime_str)
+    lastModifiedTime = scrapy.Field()
