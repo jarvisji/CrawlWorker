@@ -16,7 +16,7 @@ class StackOverflowSpider(Spider):
 
     def __init__(self, name=None, **kwargs):
         Spider.__init__(self, name=None, **kwargs)
-        self.file = open(self.get_output_filename(), 'ab+')
+        self.check_output_path()
 
     def parse(self, response):
         """
@@ -29,8 +29,9 @@ class StackOverflowSpider(Spider):
         summaries = response.css('div.question-summary')
         items = []
 
-        exporter = JsonLinesItemExporter(self.file)
         last_crawled_datetime = self.get_last_crawled_datetime()
+        current_queue_file = open(self.get_output_filename(), 'ab+')
+        exporter = JsonLinesItemExporter(current_queue_file)
         new_relative_time = self.str2datetime(summaries[0].css('.relativetime').xpath('@title').extract())
         new_count = 0
         for question in summaries:
@@ -45,34 +46,70 @@ class StackOverflowSpider(Spider):
             item['lastModifiedTime'] = question_relative_time
             exporter.export_item(item)
             new_count += 1
-        self.finish_export(new_relative_time, new_count)
+        self.finish_export(new_relative_time, new_count, current_queue_file)
 
-    def finish_export(self, new_relative_time, new_count):
+    def finish_export(self, new_relative_time, new_count, current_queue_file):
         if new_count > 0:
-            self.file.write(
-                '\nCrawled finished at %s, the latest active time of question is:\n' % datetime.now())
-            self.file.write(self.datetime2str(new_relative_time) + '\n')
-            self.file.write('=' * 80 + '\n')
-            self.file.close()
+            current_queue_file.write(
+                '%sCrawled finished at %s, the latest active time of question is:%s' % (
+                    os.linesep, datetime.now(), os.linesep))
+            current_queue_file.write(self.datetime2str(new_relative_time) + os.linesep)
+            current_queue_file.write('=' * 80 + os.linesep)
+            current_queue_file.close()
         log.msg('Crawled %i new questions.' % new_count)
 
+    def check_output_path(self):
+        output_path = self.get_output_path()
+        if not os.path.isdir(output_path):
+            os.mkdir(output_path)
+
+    @staticmethod
+    def get_output_path():
+        return os.curdir + os.sep + 'output'
+
+    def get_file_path(self, filename):
+        return self.get_output_path() + os.sep + filename
+
     def get_output_filename(self):
-        return self.name + '.' + date.today().strftime('%Y%m%d') + '.out'
+        filename = self.name + '.queue.' + date.today().strftime('%Y%m%d') + '.txt'
+        return self.get_file_path(filename)
+
+    def get_latest_output_filename(self):
+        """Get file list in output path, order them and get the last one"""
+        files = os.listdir(self.get_output_path())
+        files.reverse()
+        for filename in files:
+            file_path = self.get_file_path(filename)
+            if filename.startswith(self.name + '.queue.') and os.path.getsize(file_path) > 0:
+                return file_path
+
+    def is_file_empty(self, file_name):
+        """if file_name is not specified, or file not exists, or file size is 0, it's empty"""
+        if not file_name:
+            return True
+        if (not os.path.exists(file_name)) or os.path.getsize(file_name) == 0:
+            return True
+        return False
 
     def get_last_crawled_datetime(self):
         """In output file, we recorded datetime of the last question we crawled, here we get it back"""
+        queue_filename = self.get_output_filename()
+        if self.is_file_empty(queue_filename):
+            queue_filename = self.get_latest_output_filename()
+            log.msg('Today\'s output file does not exist: %s, try to open latest one: %s' % (
+                self.get_output_filename(), queue_filename))
 
         # the last line is 80 '=', the line before last line is datetime, e.g. '2015-04-14 10:10:52Z',
         # length is 20, so seek to position of last 120 bytes.
-        output_file_size = os.path.getsize(self.get_output_filename())
-        if output_file_size > 120:
-            self.file.seek(-120, os.SEEK_END)
-            last_line = self.file.readlines()[-2].decode()
-            last_crawled_datetime = self.str2datetime(last_line.strip())
-            # seek back to start, for later reading.
-            self.file.seek(0, os.SEEK_SET)
-        else:
-            last_crawled_datetime = datetime.fromtimestamp(0)
+        last_crawled_datetime = datetime.fromtimestamp(0)
+        if not self.is_file_empty(queue_filename):
+            output_file_size = os.path.getsize(queue_filename)
+            if output_file_size > 120:
+                queue_file = open(queue_filename, 'r')
+                queue_file.seek(-120, os.SEEK_END)
+                last_line = queue_file.readlines()[-2].decode()
+                last_crawled_datetime = self.str2datetime(last_line.strip())
+                queue_file.close()
         log.msg('Last crawled datetime: %s' % last_crawled_datetime)
         return last_crawled_datetime
 

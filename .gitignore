@@ -57,3 +57,5 @@ docs/_build/
 target/
 
 .idea
+# output directory for test data
+output/
