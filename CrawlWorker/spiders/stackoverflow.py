@@ -83,7 +83,8 @@ class StackOverflowSpider(Spider):
             if filename.startswith(self.name + '.queue.') and os.path.getsize(file_path) > 0:
                 return file_path
 
-    def is_file_empty(self, file_name):
+    @staticmethod
+    def is_file_empty(file_name):
         """if file_name is not specified, or file not exists, or file size is 0, it's empty"""
         if not file_name:
             return True
@@ -123,6 +124,7 @@ class StackOverflowSpider(Spider):
             return self.str2datetime(value[0])
         return datetime.strptime(value, '%Y-%m-%d %H:%M:%SZ')
 
-    def datetime2str(self, dt):
+    @staticmethod
+    def datetime2str(dt):
         return dt.strftime('%Y-%m-%d %H:%M:%SZ')
 
