@@ -13,6 +13,12 @@ class StackOverflowSpider(Spider):
     start_urls = [
         'http://stackoverflow.com/questions?sort=active'
     ]
+    # total count of crawled questions
+    total_count = 0
+    # time of last question we crawled in previous process, we only parse newer questions by compare to this time.
+    last_question_relative_time = None
+    # time of newest question in current crawl process, will save it and as last_question_relative_time in next process
+    new_question_relative_time = None
 
     def __init__(self, name=None, **kwargs):
         Spider.__init__(self, name=None, **kwargs)
@@ -29,34 +35,63 @@ class StackOverflowSpider(Spider):
         summaries = response.css('div.question-summary')
         items = []
 
-        last_crawled_datetime = self.get_last_crawled_datetime()
+        if not self.last_question_relative_time:
+            self.last_question_relative_time = self.get_last_crawled_datetime()
         current_queue_file = open(self.get_output_filename(), 'ab+')
         exporter = JsonLinesItemExporter(current_queue_file)
-        new_relative_time = self.str2datetime(summaries[0].css('.relativetime').xpath('@title').extract())
+        if not self.new_question_relative_time:
+            # only record 1 time even fetch next pages callback here multi-times.
+            self.new_question_relative_time = self.str2datetime(
+                summaries[0].css('.relativetime').xpath('@title').extract())
         new_count = 0
+        is_end = False
         for question in summaries:
             question_relative_time = self.str2datetime(
                 question.css('.relativetime').xpath('@title').extract())
-            log.msg('parsing question index %i, question_relative_time=%s' % (new_count, question_relative_time))
-            if question_relative_time.__le__(last_crawled_datetime):
+            if question_relative_time.__le__(self.last_question_relative_time):
                 log.msg('no new updates, ending...')
+                is_end = True
                 break
+            log.msg('parsing question index %i, question_relative_time=%s' % (new_count, question_relative_time))
             item = QuestionSummaryItem()
             item['url'] = question.css('.question-hyperlink').xpath('@href').extract()
             item['lastModifiedTime'] = question_relative_time
             exporter.export_item(item)
             new_count += 1
-        self.finish_export(new_relative_time, new_count, current_queue_file)
 
-    def finish_export(self, new_relative_time, new_count, current_queue_file):
-        if new_count > 0:
-            current_queue_file.write(
-                '%sCrawled finished at %s, the latest active time of question is:%s' % (
-                    os.linesep, datetime.now(), os.linesep))
-            current_queue_file.write(self.datetime2str(new_relative_time) + os.linesep)
-            current_queue_file.write('=' * 80 + os.linesep)
-            current_queue_file.close()
-        log.msg('Crawled %i new questions.' % new_count)
+        self.total_count += new_count
+        fetch_limit = 100  # TODO: Do want to crawl too many date when developing, remove this limit in production.
+        if is_end:
+            if self.total_count > 0:
+                log.msg('Crawled %i new questions.' % self.total_count)
+                self.write_finish_lines(current_queue_file)
+        else:
+            if self.total_count < fetch_limit:
+                log.msg('All questions in current page are new updated, finding next page.')
+                next_page_url = self.find_next_page_url(response)
+                yield self.make_requests_from_url(next_page_url)
+            else:
+                log.msg('Crawled data to limit: %s, stop.' % fetch_limit)
+                self.write_finish_lines(current_queue_file)
+        # close file, finish crawling.
+        current_queue_file.close()
+
+    def find_next_page_url(self, response):
+        """find 'next' button on page, parse it's url and fetch data.
+        sub-class should override this method"""
+        next_url = None
+        if response.css('.page-numbers.next'):
+            next_url = response.css('.page-numbers.next').xpath('../@href').extract()[0]
+            next_url = self.get_full_url(next_url)
+        log.msg('Found next page url: %s' % next_url)
+        return next_url
+
+    def write_finish_lines(self, current_queue_file):
+        current_queue_file.write(
+            '%sCrawled %i questions at %s, the update time of last question is:%s' % (
+                os.linesep, self.total_count, datetime.now(), os.linesep))
+        current_queue_file.write(self.datetime2str(self.new_question_relative_time) + os.linesep)
+        current_queue_file.write('=' * 80 + os.linesep)
 
     def check_output_path(self):
         output_path = self.get_output_path()
@@ -128,3 +163,14 @@ class StackOverflowSpider(Spider):
     def datetime2str(dt):
         return dt.strftime('%Y-%m-%d %H:%M:%SZ')
 
+    def get_full_url(self, url):
+        if url.find('://') > 0:
+            # already is full url
+            return url
+        if url.startswith('/'):
+            # remove first '/' if has
+            url = url[1:]
+        if url.startswith(self.allowed_domains[0]):
+            return 'http://' + url
+        else:
+            return 'http://' + self.allowed_domains[0] + '/' + url
