@@ -1,10 +1,12 @@
 __author__ = 'Ting'
 
-from scrapy import Spider, log
-from scrapy.contrib.exporter import JsonLinesItemExporter
-from CrawlWorker.items import CrawlWorkerItem, QuestionSummaryItem
 from datetime import datetime, date
 import os
+
+from scrapy import Spider, log
+from scrapy.contrib.exporter import JsonLinesItemExporter
+
+from CrawlWorker.items import QuestionSummaryItem
 
 
 class StackOverflowSpider(Spider):
@@ -60,7 +62,7 @@ class StackOverflowSpider(Spider):
             new_count += 1
 
         self.total_count += new_count
-        fetch_limit = 100  # TODO: Do want to crawl too many date when developing, remove this limit in production.
+        fetch_limit = 1000  # TODO: Do want to crawl too many date when developing, remove this limit in production.
         if is_end:
             if self.total_count > 0:
                 log.msg('Crawled %i new questions.' % self.total_count)
