@@ -15,3 +15,7 @@ NEWSPIDER_MODULE = 'CrawlWorker.spiders'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'CrawlWorker (+http://www.yourdomain.com)'
+
+ITEM_PIPELINES = {
+    'CrawlWorker.pipelines.FeedWriterPipeline': 200,
+}

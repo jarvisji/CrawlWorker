@@ -6,10 +6,9 @@
 # http://doc.scrapy.org/en/latest/topics/items.html
 
 import scrapy
-from scrapy import log
 
 
-class CrawlWorkerItem(scrapy.Item):
+class ContentItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
     name = scrapy.Field()
@@ -22,6 +21,6 @@ class CrawlWorkerItem(scrapy.Item):
     voteNumber = scrapy.Field()
 
 
-class QuestionSummaryItem(scrapy.Item):
+class FeedItem(scrapy.Item):
     url = scrapy.Field()
-    lastModifiedTime = scrapy.Field()
+    updatedTime = scrapy.Field()
