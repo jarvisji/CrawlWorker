@@ -103,9 +103,11 @@ class FeedSpider(Spider):
 
         # Get last checked feed file name
         line_separator = '-'
-        if os.path.exists(history_file_path) and os.path.getsize(history_file_path) > 0:
+        file_size = os.path.getsize(history_file_path)
+        if os.path.exists(history_file_path) and file_size > 0:
             history_file = open(history_file_path, 'rb')
-            history_file.seek(-500, os.SEEK_END)
+            if file_size > 500:
+                history_file.seek(-500, os.SEEK_END)
             last_line = history_file.readlines()[-1].decode()
             history_file.close()
             line_content = last_line.split(line_separator)  # line content should be: <%datetime%>:<%feed_file_name%>
