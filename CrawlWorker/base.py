@@ -50,11 +50,9 @@ class FeedSpider(Spider):
         # callback=self.logged_in)]
 
     def parse(self, response):
-        self.log('parsing response...')
+        self.log('parsing %s response...' % self.op)
         if self.op == 'content':
             yield self.parse_content_response(response)
-            # content_start_urls is increased by feed crawling process, so we check if there are more.
-            yield self.get_content_start_urls()
         else:
             items = self.parse_feed_items(response)
             self.log('feed items count: %i' % len(items))
@@ -139,7 +137,7 @@ class FeedSpider(Spider):
             for line in lines:
                 try:
                     feed_item = json.loads(line)
-                    content_urls.append(feed_item['url'])
+                    content_urls.append(Utils.get_full_url(self.allowed_domains[0], feed_item['url']))
                     count += 1
                 except ValueError:
                     self.log('>> ignore line: %s' % line.strip())
