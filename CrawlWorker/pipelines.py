@@ -24,9 +24,8 @@ class FeedWriterPipeline(object):
 
     def open_spider(self, spider):
         if FeedSpider.is_feed_op(spider):
-            spider_name = spider.name
-            FeedSpider.check_output_path(spider_name)
-            file_name = FeedSpider.get_feed_output_filename(spider_name)
+            spider.check_output_path()
+            file_name = spider.get_feed_output_file_path()
             self.file = open(file_name, 'a')
             self.item_exporter = JsonLinesItemExporter(self.file)
             log.msg('FeedWriterPipeline, opened file %s to append.' % file_name)

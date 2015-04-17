@@ -25,7 +25,7 @@ class FeedSpider(Spider):
         self.op = op
         self.reach_limit = False
         self.last_feed_updated_time = None
-        FeedSpider.check_output_path(self.name)
+        self.check_output_path()
         # TODO: why print log in __int__ doesn't work?
         # self.log('Initializing spider...')
         Spider.__init__(self, self.name, **kwargs)
@@ -74,6 +74,11 @@ class FeedSpider(Spider):
             if url:
                 yield self.make_requests_from_url(url)
 
+    def get_feed_start_urls(self):
+        """Set spider start_urls which Scrapy needs
+        Each sub-class should implement this method"""
+        raise NotImplementedError
+
     def parse_feed_items(self, response):
         """
         Most sites have a feed/activity page to list latest item updates. We check it to recognize those questions
@@ -91,22 +96,11 @@ class FeedSpider(Spider):
         """
         raise NotImplementedError
 
-    def parse_content_response(self, response):
-        """content item information from detail page.
-        :return item
-        """
-        raise NotImplementedError
-
-    def get_feed_start_urls(self):
-        """Set spider start_urls which Scrapy needs
-        Each sub-class should implement this method"""
-        raise NotImplementedError
-
     def get_content_start_urls(self):
         """Read content urls from in feed output files, and use 'content.history.txt' to record what we have done."""
         self.log('get_content_start_urls()')
         history_file_name = self.name + '.content.history.txt'
-        history_file_path = self.get_output_dir_path(self.name) + history_file_name
+        history_file_path = self.get_output_dir_path() + history_file_name
         self.log('>> opening history file to get last crawled feed filename: %s' % history_file_path)
 
         # Get last checked feed file name
@@ -123,10 +117,10 @@ class FeedSpider(Spider):
         self.log('>> last_feed_filename: %s' % last_feed_filename)
 
         # find new feed files
-        dir_file_names = os.listdir(self.get_output_dir_path(self.name))
+        dir_file_names = os.listdir(self.get_output_dir_path())
         feed_file_names = []
         for dir_file_name in dir_file_names:
-            if dir_file_name.startswith(self.name + '.feeds.'):
+            if dir_file_name.startswith(self.get_feed_output_file_prefix()):
                 if (last_feed_filename is None) or cmp(last_feed_filename, dir_file_name) == -1:
                     feed_file_names.append(dir_file_name)
         feed_file_names.sort()
@@ -136,7 +130,7 @@ class FeedSpider(Spider):
         content_urls = []
         history_file = open(history_file_path, 'a')
         for feed_file_name in feed_file_names:
-            feed_file_path = self.get_feed_output_file_path(self.name, feed_file_name)
+            feed_file_path = self.get_output_file_path(feed_file_name)
             self.log('>> opening feed file: %s' % feed_file_path)
             feed_file = open(feed_file_path, 'r')
             lines = feed_file.readlines()
@@ -154,6 +148,12 @@ class FeedSpider(Spider):
             history_file.write('%s  %s  %s%s' % (datetime.now().ctime(), line_separator, feed_file_name, os.linesep))
         history_file.close()
         return content_urls
+
+    def parse_content_response(self, response):
+        """content item information from detail page.
+        :return item
+        """
+        raise NotImplementedError
 
     def set_pipeline_class(self):
         """  TODO: try to set pipeline at runtime, but doesn't work currently."""
@@ -174,11 +174,11 @@ class FeedSpider(Spider):
     def get_last_feed_updated_time(self):
         """Get last_feed_updated_time from last feed output file. This method should only run once."""
         last_feed_updated_time = datetime.fromtimestamp(0)
-        output_dir = FeedSpider.get_output_dir_path(self.name)
+        output_dir = self.get_output_dir_path()
         files = os.listdir(output_dir)
         files.reverse()
         for filename in files:
-            if filename.startswith(self.name + '.feeds.'):
+            if filename.startswith(self.get_feed_output_file_prefix()):
                 full_filename = output_dir + filename
                 if os.path.getsize(full_filename):
                     self.log('Opening last feed file: %s' % full_filename)
@@ -195,31 +195,28 @@ class FeedSpider(Spider):
         self.log('get_last_feed_updated_time(): %s' % last_feed_updated_time)
         return last_feed_updated_time
 
+    def get_feed_output_file_prefix(self):
+        return self.name + '.feeds.'
 
-    @staticmethod
-    def get_feed_output_filename(spider_name):
-        filename = spider_name + '.feeds.' + datetime.now().strftime('%Y%m%d%H%M%S') + '.txt'
-        return FeedSpider.get_feed_output_file_path(spider_name, filename)
+    def get_feed_output_file_path(self):
+        filename = self.get_feed_output_file_prefix() + datetime.now().strftime('%Y%m%d%H%M%S') + '.txt'
+        return self.get_output_file_path(filename)
 
-    @staticmethod
-    def get_output_dir_path(spider_name):
-        """Output path is set to './output/<%spiderName%>'."""
-        return os.curdir + os.sep + 'output' + os.sep + spider_name + os.sep
-
-    @staticmethod
-    def get_feed_output_file_path(spider_name, filename):
-        return FeedSpider.get_output_dir_path(spider_name) + filename
-
-    @staticmethod
-    def get_content_output_filename(item_id, item_name, spider_name):
+    def get_content_output_file_path(self, item_id, item_name):
         if (not item_id) or (not item_name):
             raise RuntimeError('item_id and item_name parameters cannot be blank.')
-        filename = spider_name + '.' + item_id + '.' + item_name + '.txt'
-        return FeedSpider.get_feed_output_file_path(spider_name, filename)
+        filename = self.name + '.' + item_id + '.' + item_name + '.txt'
+        return self.get_output_file_path(filename)
 
-    @staticmethod
-    def check_output_path(spider_name):
-        output_path = FeedSpider.get_output_dir_path(spider_name)
+    def get_output_dir_path(self):
+        """Output path is set to './output/<%spiderName%>'."""
+        return os.curdir + os.sep + 'output' + os.sep + self.name + os.sep
+
+    def get_output_file_path(self, filename):
+        return self.get_output_dir_path() + filename
+
+    def check_output_path(self):
+        output_path = self.get_output_dir_path()
         if not os.path.isdir(output_path):
             os.mkdir(output_path)
 
