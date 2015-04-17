@@ -2,10 +2,9 @@ __author__ = 'Ting'
 
 import os
 import json
-from datetime import datetime, date
+from datetime import datetime
 
-from scrapy import Spider
-from scrapy.settings import Settings
+from scrapy import Spider, log
 
 
 class FeedSpider(Spider):
@@ -20,7 +19,7 @@ class FeedSpider(Spider):
     allowed_domains = []
     start_urls = []
     op = None  # 'content' to perform scrape item content, otherwise perform update feed list.
-    MAX_FEED_LIMIT = 100
+    MAX_FEED_LIMIT = 0
 
     def __init__(self, op, **kwargs):
         self.op = op
@@ -35,11 +34,15 @@ class FeedSpider(Spider):
         self.log('start request...')
         self.log('spider name: %s, allowed_domains: %s, op: %s' % (self.name, self.allowed_domains, self.op))
         self.set_pipeline_class()  # doesn't work currently.
-        if self.op == 'content':
+        if self.is_content_op(self):
             self.start_urls = self.get_content_start_urls()
-        else:
+        elif self.is_feed_op(self):
             self.last_feed_updated_time = self.get_last_feed_updated_time()
             self.start_urls = self.get_feed_start_urls()
+        else:
+            self.log('*' * 60, log.ERROR)
+            self.log('*** Value of "op" parameter is not supported: %s ' % self.op, log.ERROR)
+            self.log('*' * 60, log.ERROR)
         self.log('start_urls: %s' % self.start_urls)
         return Spider.start_requests(self)
         # return [scrapy.FormRequest("http://www.example.com/login",
@@ -114,7 +117,7 @@ class FeedSpider(Spider):
     def check_max_limit(self, count):
         """For test/demo purpose, we don't want crawl too many data. so we set MAX_FEED_LIMIT.
          pipeline will call this method to check if reach the limit while save data."""
-        self.reach_limit = count >= self.MAX_FEED_LIMIT
+        self.reach_limit = self.MAX_FEED_LIMIT != 0 and count >= self.MAX_FEED_LIMIT
 
     def get_last_feed_updated_time(self):
         """Get last_feed_updated_time from last feed output file. This method should only run once."""
@@ -167,6 +170,14 @@ class FeedSpider(Spider):
         output_path = FeedSpider.get_output_dir_path(spider_name)
         if not os.path.isdir(output_path):
             os.mkdir(output_path)
+
+    @staticmethod
+    def is_feed_op(spider):
+        return (spider.op is None) or (spider.op == 'feed')
+
+    @staticmethod
+    def is_content_op(spider):
+        return spider.op == 'content'
 
 
 class Utils(object):
