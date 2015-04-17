@@ -11,9 +11,6 @@ class StackOverflowSpider(FeedSpider):
     def __init__(self, op=None, **kwargs):
         FeedSpider.__init__(self, op, **kwargs)
 
-    def get_content_start_urls(self):
-        return []
-
     def get_feed_start_urls(self):
         return ['http://stackoverflow.com/questions?sort=active']
 

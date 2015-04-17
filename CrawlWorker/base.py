@@ -53,6 +53,8 @@ class FeedSpider(Spider):
         self.log('parsing response...')
         if self.op == 'content':
             yield self.parse_content_response(response)
+            # content_start_urls is increased by feed crawling process, so we check if there are more.
+            yield self.get_content_start_urls()
         else:
             items = self.parse_feed_items(response)
             self.log('feed items count: %i' % len(items))
@@ -101,7 +103,57 @@ class FeedSpider(Spider):
         raise NotImplementedError
 
     def get_content_start_urls(self):
-        raise NotImplementedError
+        """Read content urls from in feed output files, and use 'content.history.txt' to record what we have done."""
+        self.log('get_content_start_urls()')
+        history_file_name = self.name + '.content.history.txt'
+        history_file_path = self.get_output_dir_path(self.name) + history_file_name
+        self.log('>> opening history file to get last crawled feed filename: %s' % history_file_path)
+
+        # Get last checked feed file name
+        line_separator = '-'
+        if os.path.exists(history_file_path) and os.path.getsize(history_file_path) > 0:
+            history_file = open(history_file_path, 'rb')
+            history_file.seek(-500, os.SEEK_END)
+            last_line = history_file.readlines()[-1].decode()
+            history_file.close()
+            line_content = last_line.split(line_separator)  # line content should be: <%datetime%>:<%feed_file_name%>
+            last_feed_filename = line_content[1].strip() if len(line_content) > 1 else line_content[0].strip()
+        else:
+            last_feed_filename = None
+        self.log('>> last_feed_filename: %s' % last_feed_filename)
+
+        # find new feed files
+        dir_file_names = os.listdir(self.get_output_dir_path(self.name))
+        feed_file_names = []
+        for dir_file_name in dir_file_names:
+            if dir_file_name.startswith(self.name + '.feeds.'):
+                if (last_feed_filename is None) or cmp(last_feed_filename, dir_file_name) == -1:
+                    feed_file_names.append(dir_file_name)
+        feed_file_names.sort()
+        self.log('>> new feed files: %i' % len(feed_file_names))
+
+        # Get feed files content
+        content_urls = []
+        history_file = open(history_file_path, 'a')
+        for feed_file_name in feed_file_names:
+            feed_file_path = self.get_feed_output_file_path(self.name, feed_file_name)
+            self.log('>> opening feed file: %s' % feed_file_path)
+            feed_file = open(feed_file_path, 'r')
+            lines = feed_file.readlines()
+            feed_file.close()
+            count = 0
+            for line in lines:
+                try:
+                    feed_item = json.loads(line)
+                    content_urls.append(feed_item['url'])
+                    count += 1
+                except ValueError:
+                    self.log('>> ignore line: %s' % line.strip())
+            self.log('>> %i urls append.' % count)
+            # Update last feed file history
+            history_file.write('%s  %s  %s%s' % (datetime.now().ctime(), line_separator, feed_file_name, os.linesep))
+        history_file.close()
+        return content_urls
 
     def set_pipeline_class(self):
         """  TODO: try to set pipeline at runtime, but doesn't work currently."""
