@@ -20,3 +20,5 @@ ITEM_PIPELINES = {
     'CrawlWorker.pipelines.FeedWriterPipeline': 200,
     'CrawlWorker.pipelines.ContentWriterPipeline': 210,
 }
+
+DOWNLOAD_DELAY = 1
