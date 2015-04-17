@@ -103,8 +103,8 @@ class FeedSpider(Spider):
 
         # Get last checked feed file name
         line_separator = '-'
-        file_size = os.path.getsize(history_file_path)
-        if os.path.exists(history_file_path) and file_size > 0:
+        file_size = os.path.getsize(history_file_path) if os.path.exists(history_file_path) else 0
+        if file_size > 0:
             history_file = open(history_file_path, 'rb')
             if file_size > 500:
                 history_file.seek(-500, os.SEEK_END)
