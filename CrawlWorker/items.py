@@ -12,7 +12,8 @@ class ContentItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
     id = scrapy.Field()
-    name = scrapy.Field()
+    name = scrapy.Field()  # Name in url, removed invalid chars for file name limitation.
+    displayName = scrapy.Field()  # Original name user input.
     url = scrapy.Field()
     author = scrapy.Field()
     authorInfo = scrapy.Field()

@@ -29,7 +29,8 @@ class StackOverflowSpider(FeedSpider):
         item = ContentItem()
         # parse question item
         name_link_node = response.css('div#question-header .question-hyperlink')
-        item['name'] = name_link_node.xpath('text()').extract()[0]
+        item['name'] = response.url.split('/')[-1]
+        item['displayName'] = name_link_node.xpath('text()').extract()[0]
         item['url'] = name_link_node.xpath('@href').extract()[0]
 
         author_node = response.css('.post-signature.owner')
