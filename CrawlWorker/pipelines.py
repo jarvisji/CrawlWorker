@@ -24,7 +24,7 @@ class FeedWriterPipeline(object):
 
     def open_spider(self, spider):
         if FeedSpider.is_feed_op(spider):
-            spider.check_output_path()
+            spider.make_sure_path_exists(spider.get_output_dir_path())
             file_name = spider.get_feed_output_file_path()
             self.file = open(file_name, 'a')
             self.item_exporter = JsonLinesItemExporter(self.file)
@@ -55,7 +55,7 @@ class ContentWriterPipeline(object):
 
     def process_item(self, item, spider):
         if FeedSpider.is_content_op(spider) and isinstance(item, ContentItem):
-            spider.check_output_path()
+            spider.make_sure_path_exists(spider.get_content_output_dir_path())
             file_path = spider.get_content_output_file_path(item['id'], item['name'].replace(' ', '-'))
             is_exist = os.path.exists(file_path)
             self.file = open(file_path, 'w')

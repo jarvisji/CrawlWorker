@@ -19,13 +19,13 @@ class FeedSpider(Spider):
     allowed_domains = []
     start_urls = []
     op = None  # 'content' to perform scrape item content, otherwise perform update feed list.
-    MAX_FEED_LIMIT = 0
+    MAX_FEED_LIMIT = 1000
 
     def __init__(self, op, **kwargs):
         self.op = op
         self.reach_limit = False
         self.last_feed_updated_time = None
-        self.check_output_path()
+        self.make_sure_path_exists(self.get_output_dir_path())
         # TODO: why print log in __int__ doesn't work?
         # self.log('Initializing spider...')
         Spider.__init__(self, self.name, **kwargs)
@@ -128,7 +128,7 @@ class FeedSpider(Spider):
         content_urls = []
         history_file = open(history_file_path, 'a')
         for feed_file_name in feed_file_names:
-            feed_file_path = self.get_output_file_path(feed_file_name)
+            feed_file_path = self.get_output_dir_path() + feed_file_name
             self.log('>> opening feed file: %s' % feed_file_path)
             feed_file = open(feed_file_path, 'r')
             lines = feed_file.readlines()
@@ -198,25 +198,25 @@ class FeedSpider(Spider):
 
     def get_feed_output_file_path(self):
         filename = self.get_feed_output_file_prefix() + datetime.now().strftime('%Y%m%d%H%M%S') + '.txt'
-        return self.get_output_file_path(filename)
+        return self.get_output_dir_path() + filename
+
+    def get_content_output_dir_path(self):
+        return self.get_output_dir_path() + "contents" + os.sep
 
     def get_content_output_file_path(self, item_id, item_name):
         if (not item_id) or (not item_name):
             raise RuntimeError('item_id and item_name parameters cannot be blank.')
         filename = self.name + '.' + item_id + '.' + item_name + '.txt'
-        return self.get_output_file_path(filename)
+        return self.get_content_output_dir_path() + filename
 
     def get_output_dir_path(self):
         """Output path is set to './output/<%spiderName%>'."""
         return os.curdir + os.sep + 'output' + os.sep + self.name + os.sep
 
-    def get_output_file_path(self, filename):
-        return self.get_output_dir_path() + filename
-
-    def check_output_path(self):
-        output_path = self.get_output_dir_path()
-        if not os.path.isdir(output_path):
-            os.mkdir(output_path)
+    @staticmethod
+    def make_sure_path_exists(path):
+        if not os.path.isdir(path):
+            os.makedirs(path)
 
     @staticmethod
     def is_feed_op(spider):
