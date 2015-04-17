@@ -18,4 +18,5 @@ NEWSPIDER_MODULE = 'CrawlWorker.spiders'
 
 ITEM_PIPELINES = {
     'CrawlWorker.pipelines.FeedWriterPipeline': 200,
+    'CrawlWorker.pipelines.ContentWriterPipeline': 210,
 }

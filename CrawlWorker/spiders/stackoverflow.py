@@ -1,6 +1,6 @@
 __author__ = 'Ting'
 
-from CrawlWorker.items import FeedItem
+from CrawlWorker.items import FeedItem, ContentItem
 from CrawlWorker.base import FeedSpider, Utils
 
 
@@ -26,7 +26,36 @@ class StackOverflowSpider(FeedSpider):
         return items
 
     def parse_content_response(self, response):
-        pass
+        item = ContentItem()
+        # parse question item
+        name_link_node = response.css('div#question-header .question-hyperlink')
+        item['name'] = name_link_node.xpath('text()').extract()[0]
+        item['url'] = name_link_node.xpath('@href').extract()[0]
+
+        author_node = response.css('.post-signature.owner')
+        item['author'] = author_node.css('.user-details').xpath('a/text()').extract()[0]
+        item['authorInfo'] = ''
+        item['createdTime'] = author_node.css('.relativetime').xpath('@title').extract()[0]
+
+        question_node = response.css('.question')
+        item['id'] = question_node.xpath('@data-questionid').extract()[0]
+        item['content'] = question_node.css('.post-text').extract()[0]
+        item['isAccepted'] = None
+        item['voteCount'] = question_node.css('.vote-count-post::text').extract()[0]
+
+        # parse answer items
+        answer_nodes = response.css('#answers .answer')
+        answers = []
+        for answer_node in answer_nodes:
+            answer = ContentItem()
+            answer['author'] = answer_node.css('.user-details').xpath('a/text()').extract()[0]
+            answer['createdTime'] = answer_node.css('.relativetime::attr(title)').extract()[0]
+            answer['content'] = answer_node.css('.post-text').extract()[0]
+            answer['isAccepted'] = len(answer_node.css('.vote-accepted-on'))
+            answer['voteCount'] = answer_node.css('.vote-count-post::text').extract()[0]
+            answers.append(answer)
+        item['answers'] = answers
+        return item
 
     def parse_feed_next_url(self, response):
         next_url = None

@@ -11,7 +11,7 @@ from scrapy.contrib.exporter import JsonLinesItemExporter
 from scrapy.exceptions import DropItem
 from scrapy import log
 
-from CrawlWorker.items import FeedItem
+from CrawlWorker.items import FeedItem, ContentItem
 from CrawlWorker.base import FeedSpider
 
 
@@ -44,3 +44,29 @@ class FeedWriterPipeline(object):
             self.file.write('Parsed %i feed items.%s' % (self.count, os.linesep))
             self.file.close()
             log.msg('closed file, appended %i items.' % self.count)
+
+
+class ContentWriterPipeline(object):
+    def __init__(self):
+        log.msg('ContentWriterPipeline.__init__()')
+        self.file = None
+        self.item_exporter = None
+        self.count = 0
+
+    def process_item(self, item, spider):
+        if FeedSpider.is_content_op(spider) and isinstance(item, ContentItem):
+            spider.check_output_path()
+            file_path = spider.get_content_output_file_path(item['id'], item['name'].replace(' ', '-'))
+            is_exist = os.path.exists(file_path)
+            self.file = open(file_path, 'w')
+            if is_exist:
+                # if file already exists, clean it and write new content.
+                self.file.seek(0)
+                self.file.truncate()
+            self.item_exporter = JsonLinesItemExporter(self.file)
+            self.item_exporter.export_item(item)
+            self.file.close()
+            log.msg('ContentWriterPipeline, saved content file %s successful.' % file_path)
+            raise DropItem('Save item success')
+        else:
+            return item

@@ -11,6 +11,7 @@ import scrapy
 class ContentItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
+    id = scrapy.Field()
     name = scrapy.Field()
     url = scrapy.Field()
     author = scrapy.Field()
@@ -18,7 +19,8 @@ class ContentItem(scrapy.Item):
     createdTime = scrapy.Field()
     content = scrapy.Field()
     isAccepted = scrapy.Field()
-    voteNumber = scrapy.Field()
+    voteCount = scrapy.Field()
+    answers = scrapy.Field()
 
 
 class FeedItem(scrapy.Item):
