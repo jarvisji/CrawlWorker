@@ -7,7 +7,7 @@
 
 import os
 
-from scrapy.contrib.exporter import JsonLinesItemExporter
+from scrapy.contrib.exporter import JsonLinesItemExporter, JsonItemExporter
 from scrapy.exceptions import DropItem
 from scrapy import log
 
@@ -63,7 +63,7 @@ class ContentWriterPipeline(object):
                 # if file already exists, clean it and write new content.
                 self.file.seek(0)
                 self.file.truncate()
-            self.item_exporter = JsonLinesItemExporter(self.file)
+            self.item_exporter = JsonItemExporter(self.file, indent=4)
             self.item_exporter.export_item(item)
             self.file.close()
             log.msg('ContentWriterPipeline, saved content file %s successful.' % file_path)
